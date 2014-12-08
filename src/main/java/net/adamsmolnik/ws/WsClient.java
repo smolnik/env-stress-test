@@ -14,6 +14,12 @@ import javax.websocket.Session;
  */
 @ClientEndpoint
 public class WsClient {
+    
+    private final String url;
+    
+    public WsClient(String url){
+        this.url = url;
+    }
 
     @OnOpen
     public void onOpen(Session session) {

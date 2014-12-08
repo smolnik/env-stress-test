@@ -28,26 +28,43 @@ import com.amazonaws.services.elasticloadbalancing.model.Listener;
 
 public class SingleEnvBuilder {
 
+    private final String baseName;
+
+    private String elbName;
+
+    private String asgName;
+
+    private String elbDnsAddress;
+
     private AmazonCloudWatch cw = new AmazonCloudWatchClient();
 
     private AmazonAutoScaling asg = new AmazonAutoScalingClient();
 
     private AmazonElasticLoadBalancing elb = new AmazonElasticLoadBalancingClient();
 
-    public static void main(String[] args) {
-        String baseName = "student001x";
-        SingleEnvBuilder seb = new SingleEnvBuilder();
-        String elbName = "elb-" + baseName;
-        seb.buildElb(elbName);
-        seb.buildAsg("asg-" + baseName, "ds " + baseName + " from asg", elbName);
-        System.out.println("OK");
+    public SingleEnvBuilder(String coreName) {
+        this.baseName = coreName;
     }
 
-    private void waitUntilReadyToWrok(String elbName) {
+    public void build() {
+        buildElb();
+        buildAsg();
+    }
+
+    public static void main(String[] args) {
+        SingleEnvBuilder seb = new SingleEnvBuilder("student001");
+        seb.build();
+        System.out.println("setup OK");
+        seb.waitUntilReadyToWork();
+        System.out.println(seb.elbDnsAddress);
+    }
+
+    private void waitUntilReadyToWork() {
         DescribeInstanceHealthResult healthResult = elb.describeInstanceHealth(new DescribeInstanceHealthRequest(elbName));
         List<InstanceState> instanceStates = healthResult.getInstanceStates();
         while (healthCondition(instanceStates)) {
             try {
+                System.out.println("Waiting...");
                 TimeUnit.SECONDS.sleep(15);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -64,17 +81,21 @@ public class SingleEnvBuilder {
         return false;
     }
 
-    private CreateLoadBalancerResult buildElb(String name) {
-        CreateLoadBalancerRequest elbRequest = new CreateLoadBalancerRequest(name).withAvailabilityZones("us-east-1a")
+    private CreateLoadBalancerResult buildElb() {
+        elbName = "elb-" + baseName;
+        CreateLoadBalancerRequest elbRequest = new CreateLoadBalancerRequest(elbName).withAvailabilityZones("us-east-1a")
                 .withListeners(new Listener("TCP", 80, 80)).withSecurityGroups("sg-7be68f1e");
         CreateLoadBalancerResult res = elb.createLoadBalancer(elbRequest);
+        elbDnsAddress = res.getDNSName();
         HealthCheck hc = new HealthCheck("HTTP:80/digest-service-no-limit/hc", 30, 5, 2, 2);
-        ConfigureHealthCheckRequest hcRequest = new ConfigureHealthCheckRequest(name, hc);
+        ConfigureHealthCheckRequest hcRequest = new ConfigureHealthCheckRequest(elbName, hc);
         elb.configureHealthCheck(hcRequest);
         return res;
     }
 
-    private void buildAsg(String asgName, String ec2Name, String elbName) {
+    private void buildAsg() {
+        asgName = "asg-" + baseName;
+        String ec2Name = "ds " + baseName + " from asg";
         CreateAutoScalingGroupRequest asgRequest = new CreateAutoScalingGroupRequest().withAutoScalingGroupName(asgName).withDesiredCapacity(1)
                 .withMinSize(1).withMaxSize(3).withHealthCheckType("ELB").withLoadBalancerNames(elbName).withHealthCheckGracePeriod(300)
                 .withLaunchConfigurationName("lc").withTags(new Tag().withKey("Name").withValue(ec2Name).withPropagateAtLaunch(true))
