@@ -3,7 +3,6 @@ package net.adamsmolnik.ws;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
-import javax.websocket.ClientEndpoint;
 import javax.websocket.ClientEndpointConfig;
 import javax.websocket.CloseReason;
 import javax.websocket.ContainerProvider;
@@ -11,6 +10,7 @@ import javax.websocket.EndpointConfig;
 import javax.websocket.MessageHandler;
 import javax.websocket.Session;
 import javax.websocket.WebSocketContainer;
+import net.adamsmolnik.env.SingleEnvBuilder;
 
 /**
  * @author ASmolnik
@@ -60,9 +60,27 @@ public class WsClient {
     }
 
     public static void main(String[] args) throws Exception {
-        WsClient ws = new WsClient("ws://wdsc.adamsmolnik.com/webclient/ws");
-        String dsElb = "elb-student001-353948561.us-east-1.elb.amazonaws.com";
-        ws.send("launch;" + dsElb + ";largefiles/file_sizedOf10000000;100;0;10");
-        TimeUnit.SECONDS.sleep(30);
+        SingleEnvBuilder seb = new SingleEnvBuilder("student002");
+        final String dsElb = seb.buildAndWaitForElb();
+        // final String dsElb = "elb-student006-1636985091.us-east-1.elb.amazonaws.com";
+        System.out.println("dsElb = " + dsElb);
+        try {
+            try {
+                newWsClient().send("launch;" + dsElb + ";largefiles/file_sizedOf10000000;1;0;1");
+            } catch (Exception e) {
+                e.printStackTrace();
+                TimeUnit.SECONDS.sleep(15);
+            }
+            newWsClient().send("launch;" + dsElb + ";largefiles/file_sizedOf10000000;100;0;10");
+        } catch (Exception e) {
+            e.printStackTrace();
+            TimeUnit.SECONDS.sleep(30);
+            newWsClient().send("launch;" + dsElb + ";largefiles/file_sizedOf10000000;100;0;10");
+        }
+        TimeUnit.SECONDS.sleep(300);
+    }
+
+    private static WsClient newWsClient() {
+        return new WsClient("ws://wdsc.adamsmolnik.com/webclient/ws");
     }
 }
