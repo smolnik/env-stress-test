@@ -71,8 +71,8 @@ public class SingleEnvBuilder {
     }
 
     public static void main(String[] args) {
-        SingleEnvBuilder seb = new SingleEnvBuilder("student002");
-        seb.waitUntilReadyToWork();
+        SingleEnvBuilder seb = new SingleEnvBuilder("student001");
+        seb.buildAndWaitForElb();
         System.out.println(seb.elbDnsAddress);
     }
 
@@ -117,7 +117,7 @@ public class SingleEnvBuilder {
     private void buildAsg() {
         String ec2Name = "ds " + baseName + " from asg";
         CreateAutoScalingGroupRequest asgRequest = new CreateAutoScalingGroupRequest().withAutoScalingGroupName(asgName).withDesiredCapacity(1)
-                .withMinSize(1).withMaxSize(3).withHealthCheckType("ELB").withLoadBalancerNames(elbName).withHealthCheckGracePeriod(300)
+                .withMinSize(1).withMaxSize(3).withHealthCheckType("EC2").withLoadBalancerNames(elbName).withHealthCheckGracePeriod(300)
                 .withLaunchConfigurationName("lc").withTags(new Tag().withKey("Name").withValue(ec2Name).withPropagateAtLaunch(true))
                 .withVPCZoneIdentifier("subnet-a8a554df");
         asg.createAutoScalingGroup(asgRequest);
